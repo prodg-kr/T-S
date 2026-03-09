@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T-S 스토리</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600;900&family=IBM+Plex+Mono:wght@300;400&display=swap');
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --border: #2a2a2a;
+    --accent: #c8a96e;
+    --accent-dim: #7a6440;
+    --text: #d4d0c8;
+    --text-dim: #6b6760;
+    --red: #b85c4a;
+    --green: #4a8c6e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif KR', serif;
+    min-height: 100vh;
+    line-height: 1.7;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 60px 24px; position: relative; z-index: 1; }
+
+  header { border-bottom: 1px solid var(--border); padding-bottom: 40px; margin-bottom: 48px; }
+
+  .site-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.2em; color: var(--accent); text-transform: uppercase; margin-bottom: 20px; }
+
+  h1 { font-size: clamp(28px, 5vw, 48px); font-weight: 900; line-height: 1.2; color: #f0ece0; margin-bottom: 10px; }
+
+  .subtitle { font-size: 14px; color: var(--text-dim); font-weight: 300; }
+
+  .tabs { display: flex; gap: 0; margin-bottom: 40px; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+
+  .tab-btn { flex: 1; padding: 12px 8px; background: transparent; border: none; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s; border-right: 1px solid var(--border); }
+
+  .tab-btn:last-child { border-right: none; }
+
+  .tab-btn.active { background: var(--accent); color: #0e0e0e; }
+
+  .tab-btn:hover:not(.active) { background: var(--surface); color: var(--text); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .section-header { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.25em; color: var(--accent-dim); text-transform: uppercase; margin-bottom: 20px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 24px; margin-bottom: 16px; transition: border-color 0.2s; }
+
+  .card:hover { border-color: var(--accent-dim); }
+
+  .card-title { font-size: 16px; font-weight: 600; color: #f0ece0; margin-bottom: 6px; }
+
+  .card-meta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
+
+  .card-desc { font-size: 14px; color: var(--text); font-weight: 300; line-height: 1.8; }
+
+  .tag { display: inline-block; padding: 2px 8px; background: #1e1e1e; border: 1px solid var(--border); border-radius: 2px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--accent); margin-right: 6px; margin-top: 8px; }
+
+  .form-group { margin-bottom: 20px; }
+
+  label { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.15em; color: var(--accent); text-transform: uppercase; margin-bottom: 8px; }
+
+  input, textarea, select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; color: var(--text); font-family: 'Noto Serif KR', serif; font-size: 14px; outline: none; transition: border-color 0.2s; resize: vertical; }
+
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+
+  select option { background: var(--surface); }
+
+  .btn { padding: 12px 28px; border: none; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.2s; }
+
+  .btn-primary { background: var(--accent); color: #0e0e0e; }
+  .btn-primary:hover { background: #d4b87a; }
+  .btn-primary:disabled { background: var(--accent-dim); cursor: not-allowed; opacity: 0.6; }
+
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent-dim); color: var(--text); }
+
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid #3a1f1a; font-size: 11px; padding: 6px 14px; }
+  .btn-success { background: var(--green); color: #fff; font-size: 11px; padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; }
+
+  .generate-box { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 32px; margin-bottom: 32px; }
+
+  .char-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 20px; }
+
+  .char-check { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #1a1a1a; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+
+  .char-check:hover { border-color: var(--accent-dim); }
+  .char-check.selected { border-color: var(--accent); background: #1e1b14; }
+
+  .char-check input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+
+  .char-check-name { font-size: 13px; color: var(--text); }
+
+  .story-output { background: #111; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px; padding: 32px; margin-top: 24px; display: none; }
+
+  .story-output.visible { display: block; }
+
+  .story-title { font-size: 20px; font-weight: 600; color: #f0ece0; margin-bottom: 20px; line-height: 1.4; }
+
+  .story-body { font-size: 15px; font-weight: 300; line-height: 2; color: var(--text); white-space: pre-wrap; }
+
+  .story-meta { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .story-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 24px; margin-bottom: 16px; cursor: pointer; transition: border-color 0.2s; }
+
+  .story-card:hover { border-color: var(--accent-dim); }
+
+  .story-card-title { font-size: 16px; font-weight: 600; color: #f0ece0; margin-bottom: 8px; }
+
+  .story-card-preview { font-size: 13px; color: var(--text-dim); font-weight: 300; line-height: 1.6; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+  .loading { display: flex; align-items: center; gap: 12px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 24px 0; }
+
+  .loading-dots span { display: inline-block; width: 4px; height: 4px; background: var(--accent); border-radius: 50%; margin: 0 2px; animation: bounce 1.2s infinite; }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-6px); opacity: 1; } }
+
+  .api-box { background: #1a1510; border: 1px solid #3a2e1a; border-radius: 4px; padding: 16px 20px; margin-bottom: 24px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  .api-box input { background: transparent; border: none; border-bottom: 1px solid #3a2e1a; border-radius: 0; padding: 4px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--accent); outline: none; width: 320px; }
+
+  .api-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a08060; white-space: nowrap; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; overflow-y: auto; padding: 40px 24px; }
+
+  .modal-overlay.visible { display: flex; align-items: flex-start; justify-content: center; }
+
+  .modal { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 40px; max-width: 720px; width: 100%; position: relative; }
+
+  .modal-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); font-size: 14px; font-weight: 300; }
+
+  .divider { height: 1px; background: var(--border); margin: 32px 0; }
+
+  .flex-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  .world-badge { display: inline-block; padding: 3px 10px; background: #1a1510; border: 1px solid var(--accent-dim); border-radius: 2px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--accent); margin-bottom: 12px; }
+
+  .status-bar { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 16px; padding: 8px 12px; background: var(--surface); border-radius: 4px; border: 1px solid var(--border); }
+
+  .final-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+
+  .draft-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--accent-dim); text-transform: uppercase; margin-bottom: 8px; }
+
+  .rules-list { list-style: none; }
+  .rules-list li { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 300; }
+  .rules-list li button { margin-left: auto; background: none; border: none; color: var(--red); cursor: pointer; font-size: 16px; }
+
+  .world-select { margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="site-label">T-S · AI 스토리 생성기</div>
+    <h1 id="headerTitle">스토리 생성기</h1>
+    <p class="subtitle" id="headerSubtitle">세계관을 선택하고 이야기를 시작하세요</p>
+  </header>
+
+  <!-- API 키 -->
+  <div class="api-box">
+    <span class="api-label">GEMINI API KEY</span>
+    <input type="password" id="apiKey" placeholder="API 키 입력" oninput="localStorage.setItem('ts_gemini_key', this.value)">
+  </div>
+
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('generate', this)">생성</button>
+    <button class="tab-btn" onclick="showTab('stories', this)">스토리</button>
+    <button class="tab-btn" onclick="showTab('characters', this)">인물</button>
+    <button class="tab-btn" onclick="showTab('world', this)">세계관</button>
+    <button class="tab-btn" onclick="showTab('settings', this)">설정</button>
+  </div>
+
+  <!-- 생성 탭 -->
+  <div id="tab-generate" class="tab-content active">
+    <div class="world-select">
+      <label>세계관 선택</label>
+      <select id="worldSelect" onchange="onWorldChange()"></select>
+    </div>
+    <div class="generate-box">
+      <div class="section-header">등장인물 선택</div>
+      <div class="char-selector" id="charSelector"></div>
+      <div class="form-group">
+        <label>상황 키워드 (선택)</label>
+        <input type="text" id="situation" placeholder="예: 야근, 물량 폭주, 신입 교육...">
+      </div>
+      <div class="form-group">
+        <label>추가 지시 (선택)</label>
+        <textarea id="extra" rows="2" placeholder="예: 결말은 열린 결말로, 특정 인물 중심으로..."></textarea>
+      </div>
+      <div class="flex-row">
+        <button class="btn btn-primary" id="generateBtn" onclick="generateStory()">스토리 생성</button>
+        <button class="btn btn-ghost" onclick="situation.value='';extra.value=''">초기화</button>
+      </div>
+      <div id="loadingIndicator" style="display:none;">
+        <div class="loading"><div class="loading-dots"><span></span><span></span><span></span></div>이야기를 쓰고 있습니다...</div>
+      </div>
+      <div class="story-output" id="storyOutput">
+        <div class="story-title" id="outputTitle"></div>
+        <div class="story-body" id="outputBody"></div>
+        <div class="final-section">
+          <div class="draft-label">메모 / 최종안 작업</div>
+          <textarea id="outputMemo" rows="4" placeholder="초안을 바탕으로 메모하거나 최종안을 작성하세요..."></textarea>
+        </div>
+        <div class="story-meta">
+          <span id="outputMeta"></span>
+          <div class="flex-row">
+            <button class="btn btn-ghost" style="padding:6px 16px;font-size:11px;" onclick="saveCurrentStory()">저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 스토리 탭 -->
+  <div id="tab-stories" class="tab-content">
+    <div class="flex-row" style="justify-content:space-between;margin-bottom:20px;">
+      <div class="section-header" style="margin-bottom:0;">저장된 스토리</div>
+    </div>
+    <div id="storiesList"></div>
+  </div>
+
+  <!-- 인물 탭 -->
+  <div id="tab-characters" class="tab-content">
+    <div class="world-select">
+      <label>세계관 선택</label>
+      <select id="charWorldSelect" onchange="renderCharactersList()"></select>
+    </div>
+    <div class="section-header">등장인물</div>
+    <div id="charactersList"></div>
+    <div class="divider"></div>
+    <div class="section-header">새 인물 추가</div>
+    <div class="card">
+      <div class="form-group">
+        <label>이름</label>
+        <input type="text" id="charName" placeholder="예: 박팀장">
+      </div>
+      <div class="form-group">
+        <label>직책/역할</label>
+        <input type="text" id="charRole" placeholder="예: 팀장, 파트타이머">
+      </div>
+      <div class="form-group">
+        <label>성격 / 특징</label>
+        <textarea id="charPersonality" rows="3" placeholder="외모, 말투, 행동 패턴..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>생존 전략</label>
+        <input type="text" id="charStrategy" placeholder="예: 시스템 활용, 권위로 버티기...">
+      </div>
+      <button class="btn btn-primary" onclick="addCharacter()">인물 추가</button>
+    </div>
+  </div>
+
+  <!-- 세계관 탭 -->
+  <div id="tab-world" class="tab-content">
+    <div class="section-header">세계관 목록</div>
+    <div id="worldsList"></div>
+    <div class="divider"></div>
+    <div class="section-header">새 세계관 추가</div>
+    <div class="card">
+      <div class="form-group"><label>제목</label><input type="text" id="worldTitle" placeholder="예: 착한 사람은 먼저 지친다"></div>
+      <div class="form-group"><label>부제</label><input type="text" id="worldSubtitle" placeholder="예: 성실함은 손해가 되는 곳에서"></div>
+      <div class="form-group"><label>장르</label><input type="text" id="worldGenre" placeholder="예: 블랙코미디, 직장 드라마"></div>
+      <div class="form-group"><label>배경 설정</label><textarea id="worldSetting" rows="3" placeholder="공간, 분위기, 특징..."></textarea></div>
+      <div class="form-group"><label>핵심 메시지</label><input type="text" id="worldMessage" placeholder="예: 이기심이 기술이 되는 곳"></div>
+      <div class="form-group">
+        <label>세계 규칙 (줄바꿈으로 구분)</label>
+        <textarea id="worldRules" rows="4" placeholder="규칙 1&#10;규칙 2&#10;규칙 3"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="addWorld()">세계관 추가</button>
+    </div>
+  </div>
+
+  <!-- 설정 탭 -->
+  <div id="tab-settings" class="tab-content">
+    <div class="section-header">초기 데이터 로드</div>
+    <div class="card">
+      <div class="card-desc" style="margin-bottom:16px;">물류창고 블랙코미디 세계관과 기본 캐릭터 3명을 자동으로 추가합니다.</div>
+      <button class="btn btn-primary" onclick="loadDefaultData()">기본 데이터 로드</button>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header">연결 상태</div>
+    <div class="status-bar" id="statusBar">확인 중...</div>
+  </div>
+</div>
+
+<!-- 스토리 상세 모달 -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://jpaoywwbbqosgitezdne.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_dhS4N9Ta0nRFQ8SuKeJLMQ__r08Zl_y';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let worlds = [];
+let characters = [];
+let stories = [];
+let currentStory = null;
+
+// ====== 초기화 ======
+window.onload = async () => {
+  const key = localStorage.getItem('ts_gemini_key');
+  if (key) document.getElementById('apiKey').value = key;
+  await loadAll();
+  checkStatus();
+};
+
+async function loadAll() {
+  await Promise.all([loadWorlds(), loadStories()]);
+}
+
+async function checkStatus() {
+  const { error } = await sb.from('worlds').select('id').limit(1);
+  document.getElementById('statusBar').textContent = error
+    ? '❌ Supabase 연결 오류: ' + error.message
+    : '✅ Supabase 연결 정상';
+}
+
+// ====== 세계관 ======
+async function loadWorlds() {
+  const { data } = await sb.from('worlds').select('*').order('created_at');
+  worlds = data || [];
+  renderWorldSelects();
+  renderWorldsList();
+}
+
+function renderWorldSelects() {
+  const opts = worlds.length
+    ? worlds.map(w => `<option value="${w.id}">${w.title}</option>`).join('')
+    : '<option value="">세계관 없음</option>';
+  document.getElementById('worldSelect').innerHTML = opts;
+  document.getElementById('charWorldSelect').innerHTML = opts;
+  onWorldChange();
+  renderCharactersList();
+  updateHeader();
+}
+
+function updateHeader() {
+  const w = getSelectedWorld();
+  if (w) {
+    document.getElementById('headerTitle').textContent = w.title;
+    document.getElementById('headerSubtitle').textContent = w.subtitle || w.genre || '';
+  }
+}
+
+function getSelectedWorld() {
+  const id = document.getElementById('worldSelect').value;
+  return worlds.find(w => w.id === id);
+}
+
+async function onWorldChange() {
+  updateHeader();
+  await loadCharacters();
+}
+
+function renderWorldsList() {
+  const el = document.getElementById('worldsList');
+  if (!worlds.length) { el.innerHTML = '<div class="empty-state">세계관이 없습니다</div>'; return; }
+  el.innerHTML = worlds.map(w => `
+    <div class="card">
+      <div class="flex-row" style="justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title">${w.title}</div>
+        <button class="btn btn-danger" onclick="deleteWorld('${w.id}')">삭제</button>
+      </div>
+      <div class="card-meta">${w.genre || ''}</div>
+      <div class="card-desc">${w.setting || ''}</div>
+      ${w.message ? `<div style="margin-top:10px;font-size:13px;color:var(--accent);font-family:'IBM Plex Mono',monospace;">"${w.message}"</div>` : ''}
+    </div>
+  `).join('');
+}
+
+async function addWorld() {
+  const title = document.getElementById('worldTitle').value.trim();
+  if (!title) return alert('제목을 입력하세요');
+  const rules = document.getElementById('worldRules').value.trim().split('\n').filter(r => r.trim());
+  const { error } = await sb.from('worlds').insert({
+    title,
+    subtitle: document.getElementById('worldSubtitle').value.trim(),
+    genre: document.getElementById('worldGenre').value.trim(),
+    setting: document.getElementById('worldSetting').value.trim(),
+    message: document.getElementById('worldMessage').value.trim(),
+    rules
+  });
+  if (error) return alert('오류: ' + error.message);
+  ['worldTitle','worldSubtitle','worldGenre','worldSetting','worldMessage','worldRules'].forEach(id => document.getElementById(id).value = '');
+  await loadWorlds();
+}
+
+async function deleteWorld(id) {
+  if (!confirm('세계관과 관련 인물/스토리가 모두 삭제됩니다. 계속하시겠습니까?')) return;
+  await sb.from('worlds').delete().eq('id', id);
+  await loadAll();
+}
+
+// ====== 캐릭터 ======
+async function loadCharacters() {
+  const worldId = document.getElementById('worldSelect').value;
+  if (!worldId) { characters = []; renderCharSelector(); return; }
+  const { data } = await sb.from('characters').select('*').eq('world_id', worldId).order('created_at');
+  characters = data || [];
+  renderCharSelector();
+  renderCharactersList();
+}
+
+function renderCharSelector() {
+  const el = document.getElementById('charSelector');
+  if (!characters.length) { el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;">인물이 없습니다. 인물 탭에서 추가하세요.</div>'; return; }
+  el.innerHTML = characters.map(c => `
+    <label class="char-check" id="charcheck-${c.id}">
+      <input type="checkbox" value="${c.id}" onchange="this.closest('.char-check').classList.toggle('selected',this.checked)">
+      <span class="char-check-name">${c.name}</span>
+    </label>
+  `).join('');
+}
+
+async function renderCharactersList() {
+  const worldId = document.getElementById('charWorldSelect').value;
+  if (!worldId) { document.getElementById('charactersList').innerHTML = '<div class="empty-state">세계관을 선택하세요</div>'; return; }
+  const { data } = await sb.from('characters').select('*').eq('world_id', worldId).order('created_at');
+  const el = document.getElementById('charactersList');
+  if (!data?.length) { el.innerHTML = '<div class="empty-state">인물이 없습니다</div>'; return; }
+  el.innerHTML = data.map(c => `
+    <div class="card">
+      <div class="flex-row" style="justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title">${c.name}</div>
+        <button class="btn btn-danger" onclick="deleteCharacter('${c.id}')">삭제</button>
+      </div>
+      <div class="card-meta">${c.role || ''}</div>
+      <div class="card-desc">${c.personality || ''}</div>
+      ${c.strategy ? `<span class="tag">${c.strategy}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+async function addCharacter() {
+  const worldId = document.getElementById('charWorldSelect').value;
+  if (!worldId) return alert('세계관을 먼저 선택하세요');
+  const name = document.getElementById('charName').value.trim();
+  if (!name) return alert('이름을 입력하세요');
+  const { error } = await sb.from('characters').insert({
+    world_id: worldId,
+    name,
+    role: document.getElementById('charRole').value.trim(),
+    personality: document.getElementById('charPersonality').value.trim(),
+    strategy: document.getElementById('charStrategy').value.trim()
+  });
+  if (error) return alert('오류: ' + error.message);
+  ['charName','charRole','charPersonality','charStrategy'].forEach(id => document.getElementById(id).value = '');
+  await loadCharacters();
+  await renderCharactersList();
+}
+
+async function deleteCharacter(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  await sb.from('characters').delete().eq('id', id);
+  await loadCharacters();
+  await renderCharactersList();
+}
+
+// ====== 스토리 생성 ======
+async function generateStory() {
+  const apiKey = localStorage.getItem('ts_gemini_key');
+  if (!apiKey) return alert('Gemini API 키를 입력하세요');
+  const world = getSelectedWorld();
+  if (!world) return alert('세계관을 선택하세요');
+  const selectedIds = Array.from(document.querySelectorAll('#charSelector input:checked')).map(el => el.value);
+  if (!selectedIds.length) return alert('등장인물을 1명 이상 선택하세요');
+  const selectedChars = characters.filter(c => selectedIds.includes(c.id));
+  const situation = document.getElementById('situation').value.trim();
+  const extra = document.getElementById('extra').value.trim();
+
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('loadingIndicator').style.display = 'block';
+  document.getElementById('storyOutput').classList.remove('visible');
+
+  try {
+    const prompt = buildPrompt(world, selectedChars, situation, extra);
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.9, maxOutputTokens: 2000 } })
+    });
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const titleMatch = text.match(/제목[:\s]+(.+)/);
+    const title = titleMatch ? titleMatch[1].trim() : '무제';
+    const body = text.replace(/제목[:\s]+.+\n?/, '').trim();
+
+    currentStory = {
+      world_id: world.id,
+      title,
+      draft: body,
+      final: '',
+      characters_used: selectedChars.map(c => c.name),
+      situation: situation || '일상',
+      memo: ''
+    };
+
+    document.getElementById('outputTitle').textContent = title;
+    document.getElementById('outputBody').textContent = body;
+    document.getElementById('outputMemo').value = '';
+    document.getElementById('outputMeta').textContent = selectedChars.map(c => c.name).join(' · ');
+    document.getElementById('storyOutput').classList.add('visible');
+  } catch(e) {
+    alert('생성 오류: ' + e.message);
+  } finally {
+    document.getElementById('generateBtn').disabled = false;
+    document.getElementById('loadingIndicator').style.display = 'none';
+  }
+}
+
+function buildPrompt(world, chars, situation, extra) {
+  const rules = Array.isArray(world.rules) ? world.rules.map(r => '- ' + r).join('\n') : '';
+  const charDesc = chars.map(c => `[${c.name}]\n직책: ${c.role || ''}\n특징: ${c.personality || ''}\n생존전략: ${c.strategy || ''}`).join('\n\n');
+  return `당신은 블랙코미디 단편 소설 작가입니다.
+
+== 세계관 ==
+제목: ${world.title}
+배경: ${world.setting || ''}
+핵심 메시지: ${world.message || ''}
+세계 규칙:
+${rules}
+
+== 등장인물 ==
+${charDesc}
+
+== 상황 ==
+${situation || '평범한 작업일'}
+
+== 지시 ==
+${extra || '자연스러운 결말. 독자가 씁쓸하게 공감할 수 있는 이야기.'}
+
+위 세계관과 등장인물을 바탕으로 단편 에피소드를 써주세요.
+- 분량: 600~1000자 내외 한국어
+- 형식: 제목: [제목]\n\n[본문]
+- 대화와 행동 묘사를 균형 있게
+- 블랙코미디 톤. 과장하지 않고 현실적으로.`;
+}
+
+// ====== 스토리 저장 ======
+async function saveCurrentStory() {
+  if (!currentStory) return;
+  currentStory.memo = document.getElementById('outputMemo').value;
+  currentStory.final = document.getElementById('outputMemo').value;
+  const { error } = await sb.from('stories').insert(currentStory);
+  if (error) return alert('저장 오류: ' + error.message);
+  alert('저장되었습니다');
+  currentStory = null;
+  await loadStories();
+}
+
+// ====== 스토리 목록 ======
+async function loadStories() {
+  const { data } = await sb.from('stories').select('*').order('created_at', { ascending: false });
+  stories = data || [];
+  renderStoriesList();
+}
+
+function renderStoriesList() {
+  const el = document.getElementById('storiesList');
+  if (!stories.length) { el.innerHTML = '<div class="empty-state">저장된 스토리가 없습니다</div>'; return; }
+  el.innerHTML = stories.map(s => `
+    <div class="story-card" onclick="openStory('${s.id}')">
+      <div class="flex-row" style="justify-content:space-between;margin-bottom:8px;">
+        <div class="story-card-title">${s.title}</div>
+        <button class="btn btn-danger" onclick="event.stopPropagation();deleteStory('${s.id}')">삭제</button>
+      </div>
+      <div style="margin-bottom:8px;">${(s.characters_used||[]).map(c=>`<span class="tag">${c}</span>`).join('')}</div>
+      <div class="story-card-preview">${s.draft || ''}</div>
+      ${s.final ? '<div style="margin-top:6px;font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--green);">✓ 최종안 있음</div>' : ''}
+      <div style="margin-top:10px;font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--text-dim);">${new Date(s.created_at).toLocaleString('ko-KR')}</div>
+    </div>
+  `).join('');
+}
+
+function openStory(id) {
+  const s = stories.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('modalContent').innerHTML = `
+    <div class="world-badge">${(s.characters_used||[]).join(' · ')}</div>
+    <div class="story-title">${s.title}</div>
+    <div class="story-body">${s.draft || ''}</div>
+    ${s.memo ? `<div class="final-section"><div class="draft-label">메모 / 최종안</div><div class="story-body" style="font-size:14px;">${s.memo}</div></div>` : ''}
+    <div class="story-meta"><span>${new Date(s.created_at).toLocaleString('ko-KR')}</span></div>
+  `;
+  document.getElementById('modalOverlay').classList.add('visible');
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('visible'); }
+
+async function deleteStory(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  await sb.from('stories').delete().eq('id', id);
+  await loadStories();
+}
+
+// ====== 기본 데이터 ======
+async function loadDefaultData() {
+  if (!confirm('기본 세계관과 캐릭터를 추가하시겠습니까?')) return;
+  const { data: w, error: we } = await sb.from('worlds').insert({
+    title: '착한 사람은 먼저 지친다',
+    subtitle: '성실함은 손해가 되는 곳에서',
+    genre: '블랙코미디 / 직장 드라마',
+    setting: '대형 물류창고. 컨베이어 벨트 중심 작업. 분류·적재·스캔 반복. 관리자는 전체 상황을 완전히 파악하기 어렵다.',
+    message: '이기심이 기술이 되는 곳. 일하는 사람과 버티는 사람.',
+    rules: ['성실한 사람이 일을 더 많이 떠맡는다','이기심과 요령이 오래 살아남는 전략이 된다','조직은 실제 기여보다 눈에 보이는 이미지로 평가한다','실제로 누가 문제를 만들었는지 항상 드러나지 않는다']
+  }).select().single();
+  if (we) return alert('세계관 추가 오류: ' + we.message);
+
+  const chars = [
+    { world_id: w.id, name: '40대 여성 (미상)', role: '일반 직원', personality: '초등학생 자녀 1명. 회사 복지와 제도를 매우 잘 활용함. 시스템의 빈틈을 파악하는 능력 탁월. 아이 관련 사유를 적극 활용해 불리한 상황에서 빠져나감.', strategy: '시스템 활용. 명분 선점.' },
+    { world_id: w.id, name: '전 은행원 (50대 남성)', role: '일반 직원 (전직 은행원)', personality: '강한 권위적 태도. 후배에게 훈계하고 규정 강조. 과거 경력 반복. 힘든 작업에서는 빠지는 경우 많음.', strategy: '권위로 영향력 유지.' },
+    { world_id: w.id, name: '김씨 (40대 남성)', role: '일반 직원', personality: '키 작음. 큰 머리. 곱슬머리. 두꺼운 안경. 강한 부산 사투리. 운동·골프·해외 경험을 자랑하지만 실제 작업 속도 느리고 실수 반복. 자신의 문제를 인지하지 못함.', strategy: '무인지성 반복.' }
+  ];
+  const { error: ce } = await sb.from('characters').insert(chars);
+  if (ce) return alert('캐릭터 추가 오류: ' + ce.message);
+
+  alert('기본 데이터가 추가되었습니다!');
+  await loadAll();
+}
+
+// ====== 탭 ======
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'characters') renderCharactersList();
+  if (name === 'stories') loadStories();
+}
+</script>
+</body>
+</html>
